@@ -1,0 +1,8 @@
+useDynLib(CPGchron)
+
+import(hdrcde, boa)
+
+export("calibrate","CPG","CPGmenu","hdr2.den","PlotCPG","PlotDens","predictCPG","pause")
+
+
+
