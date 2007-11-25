@@ -3,12 +3,13 @@
 // This function runs the main CPGchron malarkey
 
 #include<R.h>
-#include <Rmath.h>
+#include<Rmath.h>
 #include<stdio.h>
 #include<time.h>
 #include"use.h"
 
 ////////////////////// Some other functions //////////////////////////////////
+
 
 int GetLengthCurrentDepths(double depthlow,double depthhigh,double ddepth[],int length)
 {
@@ -102,10 +103,12 @@ void predict(char**PARFILE,char**DETSFILE,char**OUTFILE,int*ndets,char**DDEPTHFI
 //from a separate file using same method as cal curve:
 char labcode[*ndets][50];
 double cage[*ndets],sd[*ndets],depth[*ndets],thick[*ndets],outprob1[*ndets],outprob2[*ndets];
- 
+int type[*ndets]; 
+
 FILE *dets;
 
 double numb1[*ndets],numb2[*ndets],numb3[*ndets],numb4[*ndets],numb5[*ndets],numb6[*ndets];
+int numb7[*ndets];
 int i;
 
 dets = fopen(*DETSFILE,"r");
@@ -129,6 +132,7 @@ if(dets==NULL) {
        fscanf(dets,"%lf",&numb4[i]);                       
        fscanf(dets,"%lf",&numb5[i]);
        fscanf(dets,"%lf",&numb6[i]);
+       fscanf(dets,"%i",&numb7[i]);
     }
 
     for(i=0;i<*ndets;i++)
@@ -139,6 +143,7 @@ if(dets==NULL) {
        thick[i] = (double)numb4[i]/100;
        outprob1[i] = (double)numb5[i];
        outprob2[i] = (double)numb6[i];
+       type[i] = (int)numb7[i];
     }
     
     Rprintf("Determinations read successfully.\n");
@@ -182,7 +187,7 @@ double p = 1.2;
 //////////////////////// READ IN PARAMETER AND START PREDICTION //////////////////////////
 
 // Create arrays to store everything
-double thetas[*ndets],shift1[*ndets],shift2[*ndets];
+double thetas[*ndets],shift1[*ndets],shift2[*ndets],mydepths[*ndets];
 double mean,psi;
 int flag1[*ndets],flag2[*ndets];
 double PredEst[*lenddepths],alphaT,lambdaT,betaT;
@@ -202,7 +207,6 @@ int lencurrentdepths;
 
 // Calculate the differences of the depths
 double depthdiff[*ndets-1];
-diff(depth,ndets,depthdiff);
 
 FILE *pars,*chrons;
 
@@ -222,6 +226,10 @@ if(pars==NULL) {
        for(j=0;j<*ndets;j++)
        {  
          fscanf(pars,"%lf",&thetas[j]);                       
+       } 
+       for(j=0;j<*ndets;j++)
+       {  
+         fscanf(pars,"%lf",&mydepths[j]);                       
        } 
        for(j=0;j<*ndets;j++)
        {  
@@ -245,6 +253,7 @@ if(pars==NULL) {
     alphaT = (2-p)/(p-1);
     lambdaT = pow(mean,(2-p))/(psi*(2-p));
     betaT = 1/(psi*(p-1)*pow(mean,(p-1)));
+    diff(mydepths,ndets,depthdiff);
 
     for(k=0;k<*ndets;k++)
     {
@@ -264,11 +273,11 @@ if(pars==NULL) {
         Nd = rpois(lambdaT*depthdiff[j]);  
 
         // Get the current depths and find the indices at which they are at          
-        lencurrentdepths = GetLengthCurrentDepths(depth[j],depth[j+1],ddepths,*lenddepths);
+        lencurrentdepths = GetLengthCurrentDepths(mydepths[j],mydepths[j+1],ddepths,*lenddepths);
         double currentdepths[lencurrentdepths];
         int currentdepthrows[lencurrentdepths];
-        GetCurrentDepths(depth[j],depth[j+1],ddepths,*lenddepths,currentdepths);
-        GetCurrentDepthRows(depth[j],depth[j+1],ddepths,*lenddepths,currentdepthrows);     
+        GetCurrentDepths(mydepths[j],mydepths[j+1],ddepths,*lenddepths,currentdepths);
+        GetCurrentDepthRows(mydepths[j],mydepths[j+1],ddepths,*lenddepths,currentdepthrows);     
 
         // Generate a load of runif/rexps which give the depth cutoffs for each section
         double Tempexp[Nd];
@@ -276,7 +285,7 @@ if(pars==NULL) {
         if(Nd>0) 
         {
         for(k=0;k<Nd;k++)
-            Tempexp[k] = runif(depth[j],depth[j+1]);
+            Tempexp[k] = runif(mydepths[j],mydepths[j+1]);
         
         for(k=0;k<Nd;k++) Tempexp2[k] = (int)(Tempexp[k]*100000);
         qsort(Tempexp2,Nd,sizeof(int),compare);
@@ -299,8 +308,8 @@ if(pars==NULL) {
         // Now do some linear interpolation - setup
         double PredDates[lencurrentdepths];
         double xinterp[Nd+2],yinterp[Nd+2];
-        xinterp[0] = depth[j];
-        xinterp[Nd+1] = depth[j+1];
+        xinterp[0] = mydepths[j];
+        xinterp[Nd+1] = mydepths[j+1];
         if(Nd>0) for(k=1;k<Nd+1;k++) xinterp[k] = Tempexp[k-1];
         yinterp[0] = thetas[j];
         for(k=1;k<Nd+2;k++) yinterp[k] = thetas[j]+Temp4[k-1];
@@ -322,14 +331,14 @@ if(pars==NULL) {
     
     // First upwards
     // Find the depths that are above the first depth
-    lencurrentdepths = GetLengthCurrentDepths(0,depth[0],ddepths,*lenddepths);
+    lencurrentdepths = GetLengthCurrentDepths(0,mydepths[0],ddepths,*lenddepths);
+
     if(lencurrentdepths>0)
     {
     double currentdepths[lencurrentdepths];
     int currentdepthrows[lencurrentdepths];
-    GetCurrentDepths(0,depth[0],ddepths,*lenddepths,currentdepths);
-    GetCurrentDepthRows(0,depth[0],ddepths,*lenddepths,currentdepthrows); 
-
+    GetCurrentDepths(0,mydepths[0],ddepths,*lenddepths,currentdepths);
+    GetCurrentDepthRows(0,mydepths[0],ddepths,*lenddepths,currentdepthrows); 
 
     //  Now do the creating again
     double Tempexp,Tempexp2[K];
@@ -339,8 +348,8 @@ if(pars==NULL) {
         Tempexp = rexp(1/lambdaT);
         Tempexp2[k] = Tempexp2[k-1]+Tempexp;
     }
-    for(k=0;k<K;k++) Tempexp2[k] = depth[0]-Tempexp2[k];
-    
+    for(k=0;k<K;k++) Tempexp2[k] = mydepths[0]-Tempexp2[k];
+
     double Temp,Temp2[K];
     for(k=0;k<K;k++) 
     {
@@ -352,14 +361,17 @@ if(pars==NULL) {
     // Interpolation steps
     double PredDates[lencurrentdepths];
     double xinterp[K],yinterp[K];
-    xinterp[0] = depth[0];
+    xinterp[0] = mydepths[0];
     for(k=1;k<K;k++) xinterp[k] = Tempexp2[k];
     yinterp[0] = thetas[0];
     for(k=1;k<K;k++) yinterp[k] = Temp2[k];
 
     for(k=0;k<lencurrentdepths;k++) PredDates[k] = linearinterp(K, currentdepths[k], xinterp, yinterp);
- 
+
+// Fine to here
+
     // Re-loop if any of the PredDates are in the future.
+    wrong = 0;
     for(k=0;k<lencurrentdepths;k++) if(PredDates[k]<*Present) wrong += 1;
 
     while(wrong>0)
@@ -370,7 +382,7 @@ if(pars==NULL) {
             Tempexp = rexp(1/lambdaT);
             Tempexp2[k] = Tempexp2[k-1]+Tempexp;
         }
-        for(k=0;k<K;k++) Tempexp2[k] = depth[0]-Tempexp2[k];
+        for(k=0;k<K;k++) Tempexp2[k] = mydepths[0]-Tempexp2[k];
     
         for(k=0;k<K;k++) 
         {
@@ -380,7 +392,7 @@ if(pars==NULL) {
         for(k=0;k<K;k++) Temp2[k] = thetas[0]-Temp2[k];
     
         // Interpolation steps
-        xinterp[0] = depth[0];
+        xinterp[0] = mydepths[0];
         for(k=1;k<K;k++) xinterp[k] = Tempexp2[k];
         yinterp[0] = thetas[0];
         for(k=1;k<K;k++) yinterp[k] = Temp2[k];
@@ -405,7 +417,8 @@ if(pars==NULL) {
         }
        
     }
-    
+  
+// But bad by here
 
     // and write to the bigger array
     for(k=0;k<*lenddepths;k++) 
@@ -417,16 +430,15 @@ if(pars==NULL) {
     }   
     }
     
-   
     // Now interpolate below
     // Find the depths that are above the first depth
-    lencurrentdepths = GetLengthCurrentDepths(depth[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths);
+    lencurrentdepths = GetLengthCurrentDepths(mydepths[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths);
     if(lencurrentdepths>0)
     {
     double currentdepths[lencurrentdepths];
     int currentdepthrows[lencurrentdepths];
-    GetCurrentDepths(depth[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths,currentdepths);
-    GetCurrentDepthRows(depth[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths,currentdepthrows); 
+    GetCurrentDepths(mydepths[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths,currentdepths);
+    GetCurrentDepthRows(mydepths[*ndets-1],ddepths[*lenddepths-1],ddepths,*lenddepths,currentdepthrows); 
 
     //  Now do the creating again
     double Tempexp,Tempexp2[K];
@@ -437,7 +449,7 @@ if(pars==NULL) {
         Tempexp = rexp(1/lambdaT);
         Tempexp2[k] = Tempexp2[k-1]+Tempexp;
     }
-    for(k=0;k<K;k++) Tempexp2[k] = depth[*ndets-1]+Tempexp2[k];
+    for(k=0;k<K;k++) Tempexp2[k] = mydepths[*ndets-1]+Tempexp2[k];
     
     double Temp,Temp2[K];
     Temp2[0] = 0.0;
@@ -483,6 +495,7 @@ if(pars==NULL) {
     
 
 }
+
     fclose(pars);
     fclose(chrons);
 

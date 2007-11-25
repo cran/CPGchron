@@ -1,7 +1,7 @@
 `CPGmenu` <-
 function() {
 
-CPGversion <-"0.1"
+CPGversion <-"1.0"
 
 cat("------------------------------- \n")
 cat(paste("Welcome to CPGchron version", CPGversion, "\n"))
@@ -244,9 +244,13 @@ if(R.Version()$arch=="i386")
     ddepthfile <- paste(PATH,"/Input/",name,"ddepths.txt",sep="")
     outlierfile <- paste(PATH,"/Output/",name,"Outliers.txt",sep="")
 }
-cat("Input date of core extraction in k cal yrs BP (leave blank for default = -0.057):\n")
-extract <- scan(what="",nlines=1,quiet=TRUE)
-if(length(extract)==0) extract <- -57/1000
+
+extract <- (1950-as.numeric(substr(date(),21,24)))/1000
+if(Temp[1,4]!=0) {
+    cat("Input date of core extraction in k cal yrs BP (leave blank for default = ",(1950-as.numeric(substr(date(),21,24))),"):\n",sep="")
+    extract <- scan(what="",nlines=1,quiet=TRUE)
+    if(length(extract)==0) extract <- (1950-as.numeric(substr(date(),21,24)))/1000
+}
 
 numchron <- 10000
 
@@ -396,10 +400,15 @@ cat("root directory of the hard disk. Within, you should create three directorie
 cat("outputs and calcurve. The inputs directory should contain all the information about the cores for \n")
 cat("which you require chronologies. This should include:\n")
 cat("1. 'core.dat', a tab-delimited file with columns for the laboratory code of the sample, the \n")
-cat("   14C age, the standard error, the depth (in cm), the thickness (in cm), the probability of \n")
-cat("   being a standard outlier, and the probability of being an extreme outlier. The format can \n")
-cat("   be copied from the supplied Glendalough.dat file. Note that the last two columns will \n")
-cat("   only require changing by advanced users.\n")
+cat("   14C age, the error, the depth (in cm), the thickness (in cm), the probability of \n")
+cat("   being a standard outlier, the probability of being an extreme outlier and the type of date information. \n")
+cat("   Note that there are three allowed types: 1) a standard radiocarbon date, 2) a calendar age with a Normally \n")
+cat("   distributed error, 3) a calendar age with a Uniformly distributed error. For types 1) and 2), the error given \n")
+cat("   in column 3 is a 1-sigma standard error. For type 3), the error is the distance to the upper or lower bound \n")
+cat("   of the desired Uniform distibution. The format of the .dat file can \n")
+cat("   be copied from the supplied Glendalough.dat file. Note that the two outlier columns can \n")
+cat("   generally be left as is, though you may want to set some of them to 0 if the supplied dates are \n")
+cat("   not radiocarbon ages.\n")
 cat("2. 'coreddepths.txt', a single column file which contains each of the desired depths, for \n")
 cat("   example, where pollen was collected.\n")
 cat("3. (optional) 'coreeventdepths.txt', a single column file containing depths at which \n")

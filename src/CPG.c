@@ -89,6 +89,18 @@ double Max(double *Numbers, int Count)
 
 	return Maximum;
 }
+double Min(double *Numbers, int Count)
+{
+	// Find the maximum of a sequence of numbers
+	double Minimum;
+	Minimum = Numbers[0];
+
+	for(int i = 0; i < Count; i++)
+		if( Minimum > Numbers[i] )
+			Minimum = Numbers[i];
+
+	return Minimum;
+}
 
 int seq(double from,double to,double len,double sequence[])
 {
@@ -288,10 +300,12 @@ if(CalFile==NULL) {
 //from a separate file using same method as cal curve:
 char labcode[*ndets][50];
 double cage[*ndets],sd[*ndets],depth[*ndets],thick[*ndets],outprob1[*ndets],outprob2[*ndets];
- 
+int type[*ndets]; 
+
 FILE *dets;
 
 double numb1[*ndets],numb2[*ndets],numb3[*ndets],numb4[*ndets],numb5[*ndets],numb6[*ndets];
+int numb7[*ndets];
 
 dets = fopen(*INFILE,"r");
 
@@ -315,6 +329,7 @@ if(dets==NULL) {
        fscanf(dets,"%lf",&numb4[i]);                       
        fscanf(dets,"%lf",&numb5[i]);
        fscanf(dets,"%lf",&numb6[i]);
+       fscanf(dets,"%i",&numb7[i]);
     }
 
     for(i=0;i<*ndets;i++)
@@ -325,6 +340,7 @@ if(dets==NULL) {
        thick[i] = (double)numb4[i]/100;
        outprob1[i] = (double)numb5[i];
        outprob2[i] = (double)numb6[i];
+       type[i] = (int)numb7[i];
     }
     
     Rprintf("Determinations read successfully.\n");
@@ -332,14 +348,17 @@ if(dets==NULL) {
     fclose(dets);
 }
 
+
 ///////////////////// STARTING VALUES ////////////////////////////
 
 // Create starting values for dates
 double thetaall[*ndets],shift1[*ndets],shift1new,priorp1[*ndets],shift2[*ndets];
 double shift2new,priorp2[*ndets];
-double thetanew[*ndets],thetadiff[*ndets-1],thetanewdiff[*ndets-1];
+double thetanew[*ndets],thetadiff[*ndets-1],thetanewdiff[*ndets-1],badtheta;
 double thetanewrat,shift1newrat,psinewrat,meannewrat,shift2newrat;
+double currentdepths[*ndets];
 int flag1[*ndets],flag1new,flag2[*ndets],flag2new;
+int k,badcount;
 double p=1.2,mean=5.0,meannew,psi=2.0,psinew; // Starting values
 double hi = 10000000; // big number to represent infinity
 
@@ -356,7 +375,7 @@ for(i=0;i<*ndets;i++)
 }
 // depth differences
 double depthdiff[*ndets-1];
-diff(depth,ndets,depthdiff);
+for(k=0;k<*ndets;k++) currentdepths[k] = depth[k];
 
 int iter;		// iterations loop int;
 int q,q1;		// determinations loop int;
@@ -421,21 +440,30 @@ for (iter=0;iter<*m;iter++)
     }
 
     // Write everything to files
-	for(q=0; q<*ndets; q++)	
-		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", thetaall[q]);
-	for(q=0; q<*ndets; q++)	
-		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%i ", flag1[q]);
-    for(q=0; q<*ndets; q++)	
-        if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", shift1[q]);
-    for(q=0; q<*ndets; q++)	
-		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%i ", flag2[q]);
-    for(q=0; q<*ndets; q++)	
-        if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", shift2[q]);
+	for(k=0; k<*ndets; k++)	
+		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", thetaall[k]);
+    for(k=0; k<*ndets; k++)	
+		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", currentdepths[k]);
+	for(k=0; k<*ndets; k++)	
+		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%i ", flag1[k]);
+    for(k=0; k<*ndets; k++)	
+        if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", shift1[k]);
+    for(k=0; k<*ndets; k++)	
+		if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%i ", flag2[k]);
+    for(k=0; k<*ndets; k++)	
+        if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf ", shift2[k]);
     if(iter % *thinby == 0 && iter > *burnin) fprintf(parameterfile,"%lf %lf \n", mean,psi);
 
+    ///////////////////////////////// DEPTHS ////////////////////////////////////////
+
+    // Use thickness to update the current set of depths used for this particular run
+    for(k=0;k<*ndets;k++) {
+        currentdepths[k] = runif(depth[k]-thick[k],depth[k]+thick[k]);
+    }
+    // And get differences
+    diff(currentdepths,ndets,depthdiff);
+
     ///////////////////////////////// THETAS ////////////////////////////////////////
-
-
 
 	// Update thetas by looping through each determination
 	for(q1=0; q1<*ndets; q1++)
@@ -449,52 +477,102 @@ for (iter=0;iter<*m;iter++)
         } else { 
             q = q1;
         }
-        
-		//sample a new value using a truncated random walk:
-		for(i=0;i<*ndets;i++) thetanew[i]= thetaall[i];
 
-		if(q==0)
-		{
-			thetanew[0] = truncatedwalk(thetaall[0],0.1,0.0,thetaall[1]);
-			thetanewrat = truncatedrat(thetaall[0],0.1,0.0,thetaall[1],thetanew[0]);
-		} else if(q==*ndets-1)
-		{
-			thetanew[*ndets-1] = truncatedwalk(thetaall[*ndets-1],0.1,thetaall[*ndets-2],26);
-			thetanewrat = truncatedrat(thetaall[*ndets-1],0.1,thetaall[*ndets-2],26,thetanew[*ndets-1]);
-		} else {
-			thetanew[q] = truncatedwalk(thetaall[q],0.1,thetaall[q-1],thetaall[q+1]);		
-			thetanewrat = truncatedrat(thetaall[q],0.1,thetaall[q-1],thetaall[q+1],thetanew[q]);
-		}
-	
+        // Only update radiocarbon dates that are of type 1, otherwise use raw date.
+        if(type[q]==2) {
+            if(sd[q]==0) {
+                thetaall[q] = cage[q];
+            } else {
+                thetaall[q] = rnorm(cage[q],sd[q]);
+            }
+            
+            // Check the differences to make sure they're all positive
+            diff(thetaall,ndets,thetadiff); 
+            badtheta = Min(thetadiff,*ndets-1);
+            badcount = 0;
+            while(badtheta<0) {
+                thetaall[q] = rnorm(cage[q],sd[q]);
+                diff(thetaall,ndets,thetadiff); 
+                badtheta = Min(thetadiff,*ndets-1);
+                badcount++;
+                if(badcount==200) {
+                    Rprintf("Cannot find any satisfactory chronologies. \nCheck the input file %s \nfor non-consistent depths and ages \n",*INFILE);
+                    return;
+                }
+            }
+        } 
 
-		// Difference the new thetas
-        diff(thetanew,ndets,thetanewdiff);
+        else if(type[q]==3) {
+            if(sd[q]==0) {
+                thetaall[q] = cage[q];
+            } else {
+                thetaall[q] = runif(cage[q]-sd[q],cage[q]+sd[q]);
+            }
+            // Check the differences to make sure they're all positive
+            diff(thetaall,ndets,thetadiff); 
+            badtheta = Min(thetadiff,*ndets-1);
+            badcount = 0;
+            while(badtheta<0) {
+                thetaall[q] = rnorm(cage[q],sd[q]);
+                diff(thetaall,ndets,thetadiff); 
+                badtheta = Min(thetadiff,*ndets-1);
+                badcount++;
+                if(badcount==200) {
+                    Rprintf("Cannot find any satisfactory chronologies. \nCheck the input file %s \nfor non-consistent depths and ages \n",*INFILE);
+                    return;
+                }
+            }
+            
+        } 
+        else {
 
-		//calculate old likelihood on first iteration:
-        if(iter==0) 
-        {
-           pixtheta[q] = dnorm(cage[q],BigC14[(int)(thetaall[q]*1000+0.5)+5]+flag1[q]*shift1[q]+flag2[q]*shift2[q],sqrt(pow(sd[q],2)+pow(BigSigma[(int)(thetaall[q]*1000+0.5)+5],2)),1);
-        
-            for(i=0;i<*ndets-1;i++) 
-              pixtheta[q] += log(dtweediep1(thetadiff[i],p,mean*depthdiff[i],psi/pow(depthdiff[i],p-1)));
-        }
+             //sample a new value using a truncated random walk:
+            for(i=0;i<*ndets;i++) thetanew[i]= thetaall[i];
+    
+    		if(q==0)
+	       	{
+		      	thetanew[0] = truncatedwalk(thetaall[0],0.1,0.0,thetaall[1]);
+			    thetanewrat = truncatedrat(thetaall[0],0.1,0.0,thetaall[1],thetanew[0]);
+		    } else if(q==*ndets-1)
+		    {
+			    thetanew[*ndets-1] = truncatedwalk(thetaall[*ndets-1],0.1,thetaall[*ndets-2],26);
+			    thetanewrat = truncatedrat(thetaall[*ndets-1],0.1,thetaall[*ndets-2],26,thetanew[*ndets-1]);
+    		} else {
+	       		thetanew[q] = truncatedwalk(thetaall[q],0.1,thetaall[q-1],thetaall[q+1]);		
+		      	thetanewrat = truncatedrat(thetaall[q],0.1,thetaall[q-1],thetaall[q+1],thetanew[q]);
+		    }
+	        
+    		// Difference the new thetas
+            diff(thetanew,ndets,thetanewdiff);          
 
-        //calculate new likelihood:
-        piytheta[q] = dnorm(cage[q],BigC14[(int)(thetanew[q]*1000+0.5)+5]+flag1[q]*shift1[q]+flag2[q]*shift2[q],sqrt(pow(sd[q],2)+pow(BigSigma[(int)(thetanew[q]*1000+0.5)+5],2)),1);
+		    //calculate old likelihood on first iteration:
+            if(iter==0) 
+            {
+                pixtheta[q] = dnorm(cage[q],BigC14[(int)(thetaall[q]*1000+0.5)+5]+flag1[q]*shift1[q]+flag2[q]*shift2[q],sqrt(pow(sd[q],2)+pow(BigSigma[(int)(thetaall[q]*1000+0.5)+5],2)),1);
+                
+                for(i=0;i<*ndets-1;i++) 
+                pixtheta[q] += log(dtweediep1(thetadiff[i],p,mean*depthdiff[i],psi/pow(depthdiff[i],p-1)));
+            }
+
+            //calculate new likelihood:
+            piytheta[q] = dnorm(cage[q],BigC14[(int)(thetanew[q]*1000+0.5)+5]+flag1[q]*shift1[q]+flag2[q]*shift2[q],sqrt(pow(sd[q],2)+pow(BigSigma[(int)(thetanew[q]*1000+0.5)+5],2)),1);
        
-        for(i=0;i<*ndets-1;i++) 
-            piytheta[q] += log(dtweediep1(thetanewdiff[i],p,mean*depthdiff[i],psi/pow(depthdiff[i],p-1))); 
+            for(i=0;i<*ndets-1;i++) 
+                piytheta[q] += log(dtweediep1(thetanewdiff[i],p,mean*depthdiff[i],psi/pow(depthdiff[i],p-1))); 
 
-		//Update the thetas
-		thetaall[q] = UpdateMCMC(piytheta[q],pixtheta[q],thetanew[q],thetaall[q],thetanewrat);
-		if(thetaall[q] == thetanew[q]) 
-        {
-           pixtheta[q] = piytheta[q];
-           // Difference the thetas again before re-looping
-           diff(thetaall,ndets,thetadiff);
-        }
+            //Rprintf("%i %lf %lf %lf %lf \n",q,piytheta[q],pixtheta[q],thetanew[q],thetaall[q]);
 
-	}		
+    		//Update the thetas
+	        thetaall[q] = UpdateMCMC(piytheta[q],pixtheta[q],thetanew[q],thetaall[q],thetanewrat);
+		    if(thetaall[q] == thetanew[q]) 
+            {
+                pixtheta[q] = piytheta[q];
+                // Difference the thetas again before re-looping
+                diff(thetaall,ndets,thetadiff);
+            }
+
+        }		
+    }
 
 
     for(q1=0; q1<*ndets; q1++)
@@ -669,16 +747,12 @@ for (iter=0;iter<*m;iter++)
 	piytwpsi += dgamma(1/psinew,0.01,1/0.01,1);
 	
 	psi = UpdateMCMC(piytwpsi,pixtwpsi,psinew,psi,psinewrat);
-	if(psi == psinew) pixtwpsi = piytwpsi;
-	
+	if(psi == psinew) pixtwpsi = piytwpsi;	
 
     // Sort out the RNG state
     PutRNGstate();
 
     }
-
-
-
 
 fclose(parameterfile);
 

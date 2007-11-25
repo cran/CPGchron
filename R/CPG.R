@@ -17,3 +17,4 @@ out <- .C("cpg",
     as.integer(howmany),
     as.integer(thinby))
 }
+

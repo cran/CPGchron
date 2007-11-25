@@ -68,14 +68,16 @@ Example event prediction stage (with GlendaloughEventDepths.txt)
 
 5. Check the output directory for CoreEvents.txt which will contain 95\% HDR age intervals for the depths of interest.
 
-
 Other cores can be created in a spirit similar to that found in the Glendalough.dat file. This example input file has
 5 radiocarbon dates (and the top of the core). The columns are tab
-delimited and represent the lab code of the sample, the radiocarbon age, the sample standard error, the depth (in cm)
-at which it was found, the thickness of the sample in cm (NOTE: this data is not used in the current version of CPGchron
-but it must be included so that the file is read properly.) If the thickness is unknown, zero is acceptable. The last
+delimited and represent the lab code of the sample, the radiocarbon age, the sample error, the depth (in cm)
+at which it was found, the thickness of the sample in cm. If the thickness is unknown, zero is acceptable. The next
 two columns contain the probabilities of being an outlier. The first probability identifies censored outliers as proposed
-by Christen (1994), the second indicates the probability an outlier is ignored completely by the CPGchron model.
+by Christen (1994), the second indicates the probability an outlier is ignored completely by the CPGchron model. The last
+column indicates the type of date included. There are three allowed types: 1) a standard radiocarbon date, 2) a calendar 
+age with a Normally distributed error, 3) a calendar age with a Uniformly distributed error. For types 1) and 2), the error given
+in column 3 is a 1-sigma standard error. For type 3), the error is the distance to the upper or lower bound
+of the desired Uniform distibution.
 
 }
 
