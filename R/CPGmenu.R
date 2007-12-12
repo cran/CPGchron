@@ -1,7 +1,7 @@
 `CPGmenu` <-
 function() {
 
-CPGversion <-"1.0"
+CPGversion <-"1.1"
 
 cat("------------------------------- \n")
 cat(paste("Welcome to CPGchron version", CPGversion, "\n"))
@@ -15,7 +15,7 @@ EXIT <- FALSE
 while(EXIT==FALSE)
 {
 
-choices <- c("Read in a CPGchron data file (RUN THIS FIRST)","Calibrate a set of radiocarbon dates (30 seconds - 5 minutes)","Run CPGchron (20 minutes - 12 hours)","Predict ages for the entire core (~30 seconds)","Predict ages for certain depths in the core (~30 seconds)","Produce plots of the entire chronology (~2 mins)","Produce plots of the age for certain depths in the core (~30 seconds)","FIRST TIME USERS AND HELP SYSTEM","Exit")
+choices <- c("Read in a CPGchron data file (RUN THIS FIRST)","Calibrate a set of radiocarbon dates (30 seconds - 5 minutes)","Run CPGchron (20 minutes - 12 hours)","Predict ages for the entire core (30 seconds - 5 minutes)","Predict ages for certain depths in the core (~1 minute)","Produce plots of the entire chronology (~2 mins)","Produce plots of the age for certain depths in the core (~30 seconds)","FIRST TIME USERS AND HELP SYSTEM","Exit")
 title <- "The available options are:"
 choose <- menu(choices,title = title)
 
@@ -244,13 +244,9 @@ if(R.Version()$arch=="i386")
     ddepthfile <- paste(PATH,"/Input/",name,"ddepths.txt",sep="")
     outlierfile <- paste(PATH,"/Output/",name,"Outliers.txt",sep="")
 }
-
-extract <- (1950-as.numeric(substr(date(),21,24)))/1000
-if(Temp[1,4]!=0) {
-    cat("Input date of core extraction in k cal yrs BP (leave blank for default = ",(1950-as.numeric(substr(date(),21,24))),"):\n",sep="")
-    extract <- scan(what="",nlines=1,quiet=TRUE)
-    if(length(extract)==0) extract <- (1950-as.numeric(substr(date(),21,24)))/1000
-}
+cat("Input date of core extraction in k cal yrs BP (leave blank for default = ",(1950-as.numeric(substr(date(),21,24)))/1000," k cal years BP):\n",sep="")
+extract <- scan(what="",nlines=1,quiet=TRUE)
+if(length(extract)==0) extract <- (1950-as.numeric(substr(date(),21,24)))/1000
 
 numchron <- 10000
 
@@ -435,3 +431,4 @@ EXIT=TRUE
 }
 
 }
+

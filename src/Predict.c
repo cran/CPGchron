@@ -8,86 +8,6 @@
 #include<time.h>
 #include"use.h"
 
-////////////////////// Some other functions //////////////////////////////////
-
-
-int GetLengthCurrentDepths(double depthlow,double depthhigh,double ddepth[],int length)
-{
-// This function finds the sizes of the array required to store the current depths
-
-// Need to loop through the depths to get the number of things in ddepths which are
-// between depthlow and depthhigh
-
-int i,count=0;
-for(i=0;i<length;i++)
-{
-    if((ddepth[i]<=depthhigh) & (ddepth[i]>=depthlow)) count = count+1;
-
-}
-
-return(count);
-}
-
-int GetCurrentDepths(double depthlow,double depthhigh,double ddepth[],int length,double current[])
-{
-// This function takes currentdepths and fills it with all the ddepths between depthlow and
-// depthhigh
-
-int i,count=0;
-for(i=0;i<length;i++)
-{
-    if((ddepth[i]<=depthhigh) & (ddepth[i]>=depthlow))
-    {
-      current[count] = ddepth[i];
-      count = count+1;  
-    }
-    
-}
-
-return(0);
-}
-
-int GetCurrentDepthRows(double depthlow,double depthhigh,double ddepth[],int length,int rows[])
-{
-// This function takes currentdepths and fills it with all the ddepths between depthlow and
-// depthhigh
-
-int i,count=0;
-for(i=0;i<length;i++)
-{
-    if((ddepth[i]<=depthhigh) & (ddepth[i]>=depthlow))
-    {
-      rows[count] = i;
-      count = count+1;  
-    }
-    
-}
-
-return(0);
-}
-
-double linearinterp(int n, double newx, double *a, double *b)
-{
-    double newvalue;
-    int i;
-
-//condition is where y lies between the two closests approximations to 
-//it in the cal curve
-   
-    for(i=0; i<n-1; i++)
-    {
-        if (((newx >= a[i]) & (newx <= a[i+1])) | ((newx <= a[i]) & (newx >= a[i+1])))
-        {
-                newvalue = b[i] + ((newx-a[i])/(a[i+1]-a[i]))*(b[i+1]-b[i]);
-                if(newx==a[i]) newvalue = b[i];
-                return(newvalue);
-                //break;
-        }        
-    }
-  
-  return(-999.0);
-}
-
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 ////////////////////// Main Predict function //////////////////////////////////
@@ -255,6 +175,7 @@ if(pars==NULL) {
     betaT = 1/(psi*(p-1)*pow(mean,(p-1)));
     diff(mydepths,ndets,depthdiff);
 
+    
     for(k=0;k<*ndets;k++)
     {
         OutlierSum1[k] +=flag1[k];
@@ -324,7 +245,8 @@ if(pars==NULL) {
             {
                 if(k==currentdepthrows[m]) PredEst[currentdepthrows[m]] = PredDates[m];
             }
-        }      
+        }     
+
     }
 
     // Now need to extrapolate beyond the edge of depth
@@ -341,20 +263,28 @@ if(pars==NULL) {
     GetCurrentDepthRows(0,mydepths[0],ddepths,*lenddepths,currentdepthrows); 
 
     //  Now do the creating again
-    double Tempexp,Tempexp2[K];
+    double Tempexp=0.0,Tempexp2[K];
     
     for(k=0;k<K;k++) 
     {
         Tempexp = rexp(1/lambdaT);
-        Tempexp2[k] = Tempexp2[k-1]+Tempexp;
+        if(k==0) {
+            Tempexp2[0] = Tempexp;
+        } else {
+            Tempexp2[k] = Tempexp2[k-1]+Tempexp;
+        }
     }
     for(k=0;k<K;k++) Tempexp2[k] = mydepths[0]-Tempexp2[k];
-
+   
     double Temp,Temp2[K];
     for(k=0;k<K;k++) 
     {
         Temp = rgamma(alphaT,1/betaT);
-        Temp2[k] = Temp2[k-1]+Temp;
+        if(k==0) {
+            Temp2[0] = Temp;
+        } else {
+            Temp2[k] = Temp2[k-1]+Temp;
+        }
     }
     for(k=0;k<K;k++) Temp2[k] = thetas[0]-Temp2[k];
     
@@ -368,8 +298,6 @@ if(pars==NULL) {
 
     for(k=0;k<lencurrentdepths;k++) PredDates[k] = linearinterp(K, currentdepths[k], xinterp, yinterp);
 
-// Fine to here
-
     // Re-loop if any of the PredDates are in the future.
     wrong = 0;
     for(k=0;k<lencurrentdepths;k++) if(PredDates[k]<*Present) wrong += 1;
@@ -380,14 +308,22 @@ if(pars==NULL) {
         for(k=0;k<K;k++) 
         {
             Tempexp = rexp(1/lambdaT);
-            Tempexp2[k] = Tempexp2[k-1]+Tempexp;
+            if(k==0) {
+                Tempexp2[0] = Tempexp;
+            } else {
+                Tempexp2[k] = Tempexp2[k-1]+Tempexp;
+            }
         }
         for(k=0;k<K;k++) Tempexp2[k] = mydepths[0]-Tempexp2[k];
     
         for(k=0;k<K;k++) 
         {
             Temp = rgamma(alphaT,1/betaT);
-            Temp2[k] = Temp2[k-1]+Temp;
+            if(k==0) {
+                Temp2[0] = Temp;
+            } else {
+                Temp2[k] = Temp2[k-1]+Temp;
+            }
         }
         for(k=0;k<K;k++) Temp2[k] = thetas[0]-Temp2[k];
     
@@ -418,8 +354,6 @@ if(pars==NULL) {
        
     }
   
-// But bad by here
-
     // and write to the bigger array
     for(k=0;k<*lenddepths;k++) 
     {
@@ -480,12 +414,12 @@ if(pars==NULL) {
     
     }
 
-
     // Get a new seed
     PutRNGstate();
 
     /////////////////////////////////////////////////////////////////////////////
    
+    
     // Now write out to file
     for(k=0; k<*lenddepths; k++)	
     {
